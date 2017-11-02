@@ -1,0 +1,7 @@
+[package]
+name = "genetic_basics"
+version = "0.1.0"
+authors = ["Attila Horváth <hun.ati500@gmail.com>"]
+
+[dependencies]
+rand = "0.3"
