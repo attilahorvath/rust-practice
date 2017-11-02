@@ -1,11 +1,12 @@
 extern crate rand;
 
+use std::fmt;
 use rand::Rng;
 
 const POPULATION_SIZE: usize = 15;
-const GENES: usize = 5;
+const GENES: usize = 10;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Phenotype {
     chromosome: String,
     fitness: Option<u64>,
@@ -39,16 +40,25 @@ impl Phenotype {
     }
 }
 
-#[derive(Debug)]
-pub struct Population {
-    phenotypes: Vec<Phenotype>,
+impl fmt::Display for Phenotype {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} ({})", self.chromosome, self.fitness.unwrap())
+    }
 }
 
-fn crossover((a, b): (char, char)) -> (char, char) {
+#[derive(Debug)]
+pub struct Population {
+    generation: u32,
+    phenotypes: Vec<Phenotype>,
+    worst_phenotype_index: Option<usize>,
+    best_phenotype_index: Option<usize>,
+}
+
+fn crossover((a, b): (char, char)) -> char {
     if rand::thread_rng().gen_range(1, 101) > 70 {
-        (a, b)
+        b
     } else {
-        (b, a)
+        a
     }
 }
 
@@ -61,43 +71,67 @@ fn mutate(gene: char) -> char {
 }
 
 impl Population {
-    pub fn new() -> Self {
+    pub fn new(generation: u32) -> Self {
         let mut phenotypes = Vec::with_capacity(POPULATION_SIZE);
 
         for _ in 1..(POPULATION_SIZE + 1) {
             phenotypes.push(Phenotype::new());
         }
 
-        Population { phenotypes }
+        Population {
+            generation,
+            phenotypes,
+            worst_phenotype_index: None,
+            best_phenotype_index: None,
+        }
     }
 
     pub fn calculate_fitness(&mut self) {
         for p in self.phenotypes.iter_mut() {
             p.calculate_fitness();
         }
+
+        self.worst_phenotype_index = self.phenotypes
+            .iter()
+            .enumerate()
+            .min_by_key(|&(_, p)| p.fitness.unwrap())
+            .map(|(i, _)| i);
+
+        self.best_phenotype_index = self.phenotypes
+            .iter()
+            .enumerate()
+            .max_by_key(|&(_, p)| p.fitness.unwrap())
+            .map(|(i, _)| i);
     }
 
-    pub fn evolve(mut self) -> Self {
-        self.phenotypes.sort_unstable_by_key(|p| p.fitness);
+    pub fn evolve(&self) -> Self {
+        let phenotypes = (1..(POPULATION_SIZE + 1))
+            .enumerate()
+            .map(|(index, _)| {
+                if index == 0 {
+                    return self.best_phenotype().unwrap().clone();
+                }
 
-        let mut new_phenotypes = Vec::with_capacity(POPULATION_SIZE);
+                let chromosome_a = &self.random_phenotype().chromosome;
+                let chromosome_b = &self.random_phenotype().chromosome;
 
-        for _ in 1..(POPULATION_SIZE / 2 + 1) {
-            let chromosome_a = &self.random_phenotype().chromosome;
-            let chromosome_b = &self.random_phenotype().chromosome;
+                let chromosome = chromosome_a
+                    .chars()
+                    .zip(chromosome_b.chars())
+                    .map(crossover)
+                    .map(mutate)
+                    .collect::<String>();
 
-            let (ca, cb): (String, String) = chromosome_a
-                .chars()
-                .zip(chromosome_b.chars())
-                .map(crossover)
-                .map(|(a, b)| (mutate(a), mutate(b)))
-                .unzip();
+                Phenotype::from_chromosome(&chromosome)
+            })
+            .collect();
 
-            new_phenotypes.push(Phenotype::from_chromosome(&ca));
-            new_phenotypes.push(Phenotype::from_chromosome(&cb));
+        Population {
+            generation: self.generation + 1,
+            phenotypes,
+            worst_phenotype_index: None,
+            best_phenotype_index: None,
         }
-
-        Population { phenotypes: new_phenotypes }
     }
 
     fn random_phenotype(&self) -> &Phenotype {
@@ -106,7 +140,12 @@ impl Population {
             .map(|p| p.fitness.unwrap())
             .sum::<u64>();
 
-        let target_fitness = rand::thread_rng().gen_range(1, sum_fitness + 1);
+        let target_fitness = rand::thread_rng().gen_range(0, sum_fitness + 1);
+
+        if target_fitness == 0 {
+            return &self.phenotypes[0];
+        }
+
         let mut current_fitness = 0;
 
         self.phenotypes
@@ -118,5 +157,25 @@ impl Population {
             })
             .last()
             .unwrap()
+    }
+
+    fn worst_phenotype(&self) -> Option<&Phenotype> {
+        self.worst_phenotype_index.map(|i| self.phenotypes.get(i).unwrap())
+    }
+
+    fn best_phenotype(&self) -> Option<&Phenotype> {
+        self.best_phenotype_index.map(|i| self.phenotypes.get(i).unwrap())
+    }
+}
+
+impl fmt::Display for Population {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Generation {}: {} - {}",
+            self.generation,
+            self.worst_phenotype().unwrap(),
+            self.best_phenotype().unwrap(),
+        )
     }
 }

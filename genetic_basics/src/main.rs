@@ -3,16 +3,14 @@ extern crate genetic_basics;
 use genetic_basics::Population;
 
 fn main() {
-    let mut population = Population::new();
+    let mut population = Population::new(0);
     population.calculate_fitness();
 
-    println!("{:?}", population);
+    println!("{}", population);
 
-    for _ in 1..31 {
+    for _ in 1..51 {
         population = population.evolve();
         population.calculate_fitness();
-        // println!("{:?}", population);
+        println!("{}", population);
     }
-
-    println!("{:?}", population);
 }
