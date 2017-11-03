@@ -4,7 +4,7 @@ use std::fmt;
 use rand::Rng;
 
 const POPULATION_SIZE: usize = 15;
-const GENES: usize = 10;
+const GENES: usize = 25;
 
 #[derive(Debug, Clone)]
 struct Phenotype {
@@ -31,12 +31,8 @@ impl Phenotype {
         }
     }
 
-    fn calculate_fitness(&mut self) {
-        let mut n = 0;
-        for (index, digit) in self.chromosome.chars().rev().enumerate() {
-            n += if digit == '1' { 1 } else { 0 } * 2u64.pow(index as u32);
-        }
-        self.fitness = Some(n)
+    fn calculate_fitness(&mut self, fitness_function: &Fn(&String) -> u64) {
+        self.fitness = Some(fitness_function(&self.chromosome));
     }
 }
 
@@ -71,7 +67,7 @@ fn mutate(gene: char) -> char {
 }
 
 impl Population {
-    pub fn new(generation: u32) -> Self {
+    pub fn new() -> Self {
         let mut phenotypes = Vec::with_capacity(POPULATION_SIZE);
 
         for _ in 1..(POPULATION_SIZE + 1) {
@@ -79,16 +75,16 @@ impl Population {
         }
 
         Population {
-            generation,
+            generation: 0,
             phenotypes,
             worst_phenotype_index: None,
             best_phenotype_index: None,
         }
     }
 
-    pub fn calculate_fitness(&mut self) {
+    pub fn calculate_fitness(&mut self, fitness_function: &Fn(&String) -> u64) {
         for p in self.phenotypes.iter_mut() {
-            p.calculate_fitness();
+            p.calculate_fitness(fitness_function);
         }
 
         self.worst_phenotype_index = self.phenotypes
